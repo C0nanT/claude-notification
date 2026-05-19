@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-notification",
+  "description": "Desktop notifications with sound on Linux.",
+  "owner": {
+    "name": "Conan Torres"
+  },
+  "plugins": [
+    {
+      "name": "claude-notification",
+      "description": "Visual + sound desktop notifications on Linux when Claude needs attention or finishes a task.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

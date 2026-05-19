@@ -1,0 +1,31 @@
+{
+  "name": "claude-notification",
+  "description": "Desktop notifications with sound on Linux when Claude needs attention or finishes a task.",
+  "author": {
+    "name": "Conan Torres"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-attention.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify-done.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
