@@ -1,4 +1,25 @@
+
 #!/usr/bin/env bash
+
+is_wsl() {
+  grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]
+}
+
+if is_wsl; then
+  powershell.exe -WindowStyle Hidden -Command "
+    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+    \$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+    \$template.SelectSingleNode('//text[@id=1]').InnerText = 'Claude Code'
+    \$template.SelectSingleNode('//text[@id=2]').InnerText = 'Tarefa concluida'
+    \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$template)
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show(\$toast)
+    [Console]::Beep(523, 120)
+    [Console]::Beep(659, 120)
+    [Console]::Beep(784, 180)
+  " &
+  exit 0
+fi
 
 export DISPLAY="${DISPLAY:-:0}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
