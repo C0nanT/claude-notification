@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
 
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/claude-notification"
+mkdir -p "$STATE_DIR" 2>/dev/null
+DEBOUNCE_SECONDS=2
+
+if command -v jq >/dev/null 2>&1; then
+  payload=$(cat)
+  session_id=$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)
+  event=$(printf '%s' "$payload" | jq -r '.hook_event_name // empty' 2>/dev/null)
+  if [ -n "$session_id" ] && [ -n "$event" ]; then
+    key=$(printf '%s-%s' "$session_id" "$event" | tr -c 'a-zA-Z0-9-' '_')
+    state_file="$STATE_DIR/$key.ts"
+    now=$(date +%s)
+    if [ -f "$state_file" ]; then
+      last=$(cat "$state_file" 2>/dev/null || echo 0)
+      if [ $((now - last)) -lt $DEBOUNCE_SECONDS ]; then
+        exit 0
+      fi
+    fi
+    echo "$now" > "$state_file"
+  fi
+fi
+
 is_wsl() {
   grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]
 }
