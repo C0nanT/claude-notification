@@ -1,61 +1,23 @@
 #!/usr/bin/env bash
 
-STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/claude-notification"
-mkdir -p "$STATE_DIR" 2>/dev/null
-DEBOUNCE_SECONDS=2
+TITLE="Claude Code"
+MSG="Aguardando sua atenção 👀"
+MSG_WSL="Aguardando sua atencao"
+SOUND_PRIMARY="/usr/share/sounds/freedesktop/stereo/bell.oga"
+SOUND_FALLBACK="/usr/share/sounds/freedesktop/stereo/message.oga"
+BEEPS=(659 180 880 250)
 
-if command -v jq >/dev/null 2>&1; then
-  payload=$(cat)
-  session_id=$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)
-  event=$(printf '%s' "$payload" | jq -r '.hook_event_name // empty' 2>/dev/null)
-  if [ -n "$session_id" ] && [ -n "$event" ]; then
-    key=$(printf '%s-%s' "$session_id" "$event" | tr -c 'a-zA-Z0-9-' '_')
-    state_file="$STATE_DIR/$key.ts"
-    now=$(date +%s)
-    if [ -f "$state_file" ]; then
-      last=$(cat "$state_file" 2>/dev/null || echo 0)
-      if [ $((now - last)) -lt $DEBOUNCE_SECONDS ]; then
-        exit 0
-      fi
-    fi
-    echo "$now" > "$state_file"
-  fi
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-is_wsl() {
-  grep -qi microsoft /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]
-}
+deduplicate_or_exit
 
 if is_wsl; then
-  powershell.exe -WindowStyle Hidden -Command "
-    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-    \$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-    \$template.SelectSingleNode('//text[@id=1]').InnerText = 'Claude Code'
-    \$template.SelectSingleNode('//text[@id=2]').InnerText = 'Aguardando sua atencao'
-    \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$template)
-    \$toast.ExpirationTime = [DateTimeOffset]::Now.AddSeconds(2)
-    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show(\$toast)
-    [Console]::Beep(659, 180)
-    [Console]::Beep(880, 250)
-  " &
+  notify_wsl "$TITLE" "$MSG_WSL" "${BEEPS[@]}"
   exit 0
 fi
 
-# Set display env vars if not already present (needed when running from background process)
-export DISPLAY="${DISPLAY:-:0}"
-export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
-
-command -v notify-send >/dev/null 2>&1 || exit 0
-
-notify-send -t 2000 'Claude Code' 'Aguardando sua atenção 👀'
-
-if command -v paplay >/dev/null 2>&1; then
-  paplay --volume=32768 /usr/share/sounds/freedesktop/stereo/bell.oga 2>/dev/null \
-    || paplay --volume=32768 /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null \
-    || true
-elif command -v aplay >/dev/null 2>&1; then
-  aplay /usr/share/sounds/alsa/Front_Center.wav 2>/dev/null || true
-fi
+setup_display
+notify_linux "$TITLE" "$MSG"
+play_sound "$SOUND_PRIMARY" "$SOUND_FALLBACK"
 
 exit 0

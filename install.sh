@@ -4,14 +4,18 @@ set -e
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTINGS="$HOME/.claude/settings.json"
 
-if ! command -v notify-send >/dev/null 2>&1; then
-  echo "Installing libnotify-bin..."
-  sudo apt install -y libnotify-bin
-fi
+source "$PLUGIN_DIR/lib/common.sh"
 
-if ! command -v paplay >/dev/null 2>&1; then
-  echo "Installing pulseaudio-utils..."
-  sudo apt install -y pulseaudio-utils
+if ! is_wsl; then
+  if ! command -v notify-send >/dev/null 2>&1; then
+    echo "Installing libnotify-bin..."
+    sudo apt install -y libnotify-bin
+  fi
+
+  if ! command -v paplay >/dev/null 2>&1; then
+    echo "Installing pulseaudio-utils..."
+    sudo apt install -y pulseaudio-utils
+  fi
 fi
 
 chmod +x "$PLUGIN_DIR/hooks/"*.sh
@@ -20,7 +24,6 @@ if [ ! -f "$SETTINGS" ]; then
   echo '{}' > "$SETTINGS"
 fi
 
-# Add to extraKnownMarketplaces using python3 (avoids jq dependency)
 python3 - "$SETTINGS" "$PLUGIN_DIR" <<'EOF'
 import json, sys
 
