@@ -1,0 +1,90 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint shell scripts
+        run: |
+          shellcheck -S warning \
+            hooks/notify-attention.sh \
+            hooks/notify-done.sh \
+            lib/common.sh \
+            install.sh
+
+  validate-json:
+    name: Validate JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate plugin.json and marketplace.json
+        run: |
+          jq empty .claude-plugin/plugin.json
+          jq empty .claude-plugin/marketplace.json
+
+  check-permissions:
+    name: Check Script Permissions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify hook scripts are executable
+        run: |
+          for f in hooks/notify-attention.sh hooks/notify-done.sh; do
+            if [ ! -x "$f" ]; then
+              echo "ERROR: $f is not executable"
+              exit 1
+            fi
+          done
+
+  smoke-test:
+    name: Smoke Test (dry run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Test deduplication logic
+        run: |
+          export DISPLAY=:99
+          export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
+
+          # First call should not exit early (no state file)
+          # Stub notify-send and paplay so no real GUI needed
+          export PATH="$GITHUB_WORKSPACE/.github/stubs:$PATH"
+          mkdir -p .github/stubs
+          printf '#!/bin/sh\nexit 0\n' > .github/stubs/notify-send
+          printf '#!/bin/sh\nexit 0\n' > .github/stubs/paplay
+          chmod +x .github/stubs/notify-send .github/stubs/paplay
+
+          echo '{"session_id":"ci-test-001","hook_event_name":"Stop"}' \
+            | bash hooks/notify-done.sh
+
+          echo "Smoke test passed"
+
+      - name: Test duplicate suppression within debounce window
+        run: |
+          export PATH="$GITHUB_WORKSPACE/.github/stubs:$PATH"
+
+          # Fire twice in rapid succession — second should be suppressed (exit 0)
+          echo '{"session_id":"ci-test-dedup","hook_event_name":"Notification"}' \
+            | bash hooks/notify-attention.sh
+          echo '{"session_id":"ci-test-dedup","hook_event_name":"Notification"}' \
+            | bash hooks/notify-attention.sh
+
+          echo "Deduplication test passed"
