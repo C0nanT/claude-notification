@@ -35,6 +35,7 @@ if is_wsl; then
     \$template.SelectSingleNode('//text[@id=1]').InnerText = 'Claude Code'
     \$template.SelectSingleNode('//text[@id=2]').InnerText = 'Tarefa concluida'
     \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$template)
+    \$toast.ExpirationTime = [DateTimeOffset]::Now.AddSeconds(2)
     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Claude Code').Show(\$toast)
     [Console]::Beep(523, 120)
     [Console]::Beep(659, 120)
@@ -48,7 +49,7 @@ export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user
 
 command -v notify-send >/dev/null 2>&1 || exit 0
 
-notify-send 'Claude Code' 'Tarefa concluída ✅'
+notify-send -t 2000 'Claude Code' 'Tarefa concluída ✅'
 
 if command -v paplay >/dev/null 2>&1; then
   paplay --volume=32768 /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null \
